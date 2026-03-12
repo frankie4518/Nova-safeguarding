@@ -1,0 +1,209 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isServer() {
+      return false; // Deprecated server check
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function uidUnchanged() {
+      return !('authorId' in request.resource.data) ||
+        request.resource.data.authorId == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('authorId' in request.resource.data) ||
+        request.resource.data.authorId == resource.data.authorId;
+    }
+
+    // ===============================================================
+    // Role Checks
+    // ===============================================================
+    function getUserRoles() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null && userDoc.data.verified == true ? userDoc.data.roles : [];
+    }
+
+    function hasRole(roleId) {
+      return roleId in getUserRoles();
+    }
+
+    function isSuperAdmin() {
+      return hasRole('1480245806253736198');
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return hasRequiredFields(['discordId', 'verified', 'roles', 'createdAt']) &&
+             data.discordId is string && data.discordId.size() > 0 && data.discordId.size() < 50 &&
+             data.verified is bool &&
+             data.roles is list && data.roles.size() <= 100 &&
+             data.createdAt is timestamp &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('verificationCode' in data) || data.verificationCode == null || (data.verificationCode is string && data.verificationCode.size() <= 20));
+    }
+
+    function isValidDocument(data) {
+      return hasRequiredFields(['title', 'content', 'authorId', 'authorName', 'createdAt', 'updatedAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() < 100000 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidHubFile(data) {
+      return hasRequiredFields(['name', 'type', 'authorId', 'authorName', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.type in ['file', 'folder'] &&
+             (!('size' in data) || (data.size is string && data.size.size() < 50)) &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidChatMessage(data) {
+      return hasRequiredFields(['channel', 'text', 'authorId', 'authorName', 'createdAt']) &&
+             data.channel is string && data.channel.size() > 0 && data.channel.size() < 50 &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidSafeguardLog(data) {
+      return hasRequiredFields(['student', 'category', 'status', 'severity', 'authorId', 'authorName', 'createdAt']) &&
+             data.student is string && data.student.size() > 0 && data.student.size() < 100 &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 100 &&
+             data.status in ['Open', 'Under Review', 'Resolved'] &&
+             data.severity in ['Low', 'Medium', 'High'] &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidLessonPlan(data) {
+      return hasRequiredFields(['day', 'period', 'subject', 'description', 'authorId', 'authorName', 'createdAt']) &&
+             data.day is string && data.day.size() > 0 && data.day.size() < 20 &&
+             data.period is string && data.period.size() > 0 && data.period.size() < 50 &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() < 100 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 5000 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidHubFolder(data) {
+      return hasRequiredFields(['name', 'authorId', 'authorName', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Users can read their own document
+      allow read: if isOwner(userId);
+      
+      // Users can create their own document, but ONLY with verified=false and empty roles
+      allow create: if isOwner(userId) && 
+                       isValidUser(request.resource.data) && 
+                       request.resource.data.verified == false && 
+                       request.resource.data.roles.size() == 0;
+                       
+      // Users can update their own document during verification
+      allow update: if isOwner(userId) && 
+                       isValidUser(request.resource.data);
+    }
+
+    match /documents/{documentId} {
+      // Require Writer Role: 1479289224137277591 or Super Admin
+      allow read: if hasRole('1479289224137277591') || isSuperAdmin();
+      allow create: if (hasRole('1479289224137277591') || isSuperAdmin()) && isValidDocument(request.resource.data) && uidUnchanged();
+      allow update: if (hasRole('1479289224137277591') || isSuperAdmin()) && 
+                       isValidDocument(request.resource.data) && 
+                       uidNotModified() && 
+                       areImmutableFieldsUnchanged(['createdAt', 'authorId']);
+      allow delete: if (hasRole('1479289224137277591') || isSuperAdmin()) && (isDocOwner() || isSuperAdmin());
+    }
+
+    match /hub_folders/{folderId} {
+      // Require Hub Role: 1479289224137277591 or Super Admin
+      allow read: if hasRole('1479289224137277591') || isSuperAdmin();
+      allow create: if (hasRole('1479289224137277591') || isSuperAdmin()) && isValidHubFolder(request.resource.data) && uidUnchanged();
+      allow update: if (hasRole('1479289224137277591') || isSuperAdmin()) && isValidHubFolder(request.resource.data) && uidNotModified() && areImmutableFieldsUnchanged(['createdAt', 'authorId']);
+      allow delete: if (hasRole('1479289224137277591') || isSuperAdmin()) && (isDocOwner() || isSuperAdmin());
+    }
+
+    match /hub_files/{fileId} {
+      // Require Hub Role: 1479289224137277591 or Super Admin
+      allow read: if hasRole('1479289224137277591') || isSuperAdmin();
+      allow create: if (hasRole('1479289224137277591') || isSuperAdmin()) && isValidHubFile(request.resource.data) && uidUnchanged();
+      allow update: if (hasRole('1479289224137277591') || isSuperAdmin()) && isValidHubFile(request.resource.data) && uidNotModified() && areImmutableFieldsUnchanged(['createdAt', 'authorId']);
+      allow delete: if (hasRole('1479289224137277591') || isSuperAdmin()) && (isDocOwner() || isSuperAdmin());
+    }
+
+    match /chat_messages/{messageId} {
+      // Require Comms Role: 1479289224137277591 or Super Admin
+      allow read: if hasRole('1479289224137277591') || isSuperAdmin();
+      allow create: if (hasRole('1479289224137277591') || isSuperAdmin()) && isValidChatMessage(request.resource.data) && uidUnchanged();
+      allow update: if (hasRole('1479289224137277591') || isSuperAdmin()) && isValidChatMessage(request.resource.data) && uidNotModified() && areImmutableFieldsUnchanged(['createdAt', 'authorId']);
+      allow delete: if (hasRole('1479289224137277591') || isSuperAdmin()) && (isDocOwner() || isSuperAdmin());
+    }
+
+    match /safeguard_logs/{logId} {
+      // Require Safeguard Role: 1479288718119669791 or Super Admin
+      allow read: if hasRole('1479288718119669791') || isSuperAdmin();
+      allow create: if (hasRole('1479288718119669791') || isSuperAdmin()) && isValidSafeguardLog(request.resource.data) && uidUnchanged();
+      allow update: if (hasRole('1479288718119669791') || isSuperAdmin()) && isValidSafeguardLog(request.resource.data) && uidNotModified() && areImmutableFieldsUnchanged(['createdAt', 'authorId']);
+      allow delete: if (hasRole('1479288718119669791') || isSuperAdmin()) && (isDocOwner() || isSuperAdmin());
+    }
+
+    match /lesson_plans/{planId} {
+      // Require Planner Role: 1479288921836879972 or Super Admin
+      allow read: if hasRole('1479288921836879972') || isSuperAdmin();
+      allow create: if (hasRole('1479288921836879972') || isSuperAdmin()) && isValidLessonPlan(request.resource.data) && uidUnchanged();
+      allow update: if (hasRole('1479288921836879972') || isSuperAdmin()) && isValidLessonPlan(request.resource.data) && uidNotModified() && areImmutableFieldsUnchanged(['createdAt', 'authorId']);
+      allow delete: if (hasRole('1479288921836879972') || isSuperAdmin()) && (isDocOwner() || isSuperAdmin());
+    }
+  }
+}

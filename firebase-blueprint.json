@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A staff member authenticated via Discord.",
+      "type": "object",
+      "properties": {
+        "discordId": { "type": "string", "description": "The user's Discord ID" },
+        "displayName": { "type": "string", "description": "The user's Discord display name" },
+        "verificationCode": { "type": "string", "description": "The random code to type in Discord" },
+        "verified": { "type": "boolean", "description": "Whether the user has successfully verified" },
+        "roles": { "type": "array", "items": { "type": "string" }, "description": "Discord role IDs" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["discordId", "verified", "roles", "createdAt"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "A text document in Ashberry Writer.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "authorId", "authorName", "createdAt", "updatedAt"]
+    },
+    "HubFile": {
+      "title": "HubFile",
+      "description": "A file or folder in Staff Hub.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["file", "folder"] },
+        "size": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "authorId", "authorName", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in Internal Mail (NOVA).",
+      "type": "object",
+      "properties": {
+        "channel": { "type": "string" },
+        "text": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["channel", "text", "authorId", "authorName", "createdAt"]
+    },
+    "SafeguardLog": {
+      "title": "SafeguardLog",
+      "description": "An incident log in Safeguard Log.",
+      "type": "object",
+      "properties": {
+        "student": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string", "enum": ["Open", "Under Review", "Resolved"] },
+        "severity": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["student", "category", "status", "severity", "authorId", "authorName", "createdAt"]
+    },
+    "LessonPlan": {
+      "title": "LessonPlan",
+      "description": "A lesson block in Curriculum Planner.",
+      "type": "object",
+      "properties": {
+        "day": { "type": "string" },
+        "period": { "type": "string" },
+        "subject": { "type": "string" },
+        "description": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["day", "period", "subject", "description", "authorId", "authorName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Stores staff users and their verified Discord roles."
+    },
+    "documents/{documentId}": {
+      "schema": "Document",
+      "description": "Stores NOVA Writer documents."
+    },
+    "hub_files/{fileId}": {
+      "schema": "HubFile",
+      "description": "Stores NOVA Hub files and folders."
+    },
+    "internal_mail/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Stores Internal Mail messages for NOVA."
+    },
+    "safeguard_logs/{logId}": {
+      "schema": "SafeguardLog",
+      "description": "Stores Safeguard incident logs."
+    },
+    "lesson_plans/{planId}": {
+      "schema": "LessonPlan",
+      "description": "Stores Curriculum Planner lesson blocks."
+    }
+  }
+}
